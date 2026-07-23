@@ -180,6 +180,16 @@ import project from './wallpaper-properties.json';
     document.getElementById('browser-audio-bridge')?.classList.remove('is-connected');
   };
 
+  const requestReconnect = (message) => {
+    if (!stream) return;
+    const panel = document.getElementById('browser-audio-bridge');
+    const error = document.getElementById('browser-audio-error');
+    const button = document.getElementById('browser-audio-connect');
+    panel?.classList.remove('is-connected');
+    if (error) error.textContent = message;
+    if (button) button.textContent = '重新连接系统音频';
+  };
+
   const sampleLogBand = (band, sampleRate) => {
     const minimumHz = 20;
     const maximumHz = 12000;
@@ -214,9 +224,18 @@ import project from './wallpaper-properties.json';
       return;
     }
     try {
+      if (stream) stop();
       error.textContent = '';
+      button.textContent = '共享系统音频';
       button.disabled = true;
-      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: 'monitor' },
+        audio: { suppressLocalAudioPlayback: false },
+        systemAudio: 'include',
+        windowAudio: 'system',
+        monitorTypeSurfaces: 'include',
+        selfBrowserSurface: 'exclude',
+      });
       if (!stream.getAudioTracks().length) throw new Error('没有检测到音轨，请重新共享并勾选“共享系统音频”。');
       context = new AudioContext();
       await context.resume();
@@ -227,6 +246,9 @@ import project from './wallpaper-properties.json';
       analyser.maxDecibels = -12;
       context.createMediaStreamSource(stream).connect(analyser);
       stream.getTracks().forEach((track) => { track.onended = stop; });
+      stream.getAudioTracks().forEach((track) => {
+        track.onmute = () => requestReconnect('系统音频已静音。若刚切换到蓝牙耳机，请重新连接。');
+      });
       panel.classList.add('is-connected');
       update();
     } catch (caught) {
@@ -241,6 +263,9 @@ import project from './wallpaper-properties.json';
     document.getElementById('browser-audio-connect')?.addEventListener('click', connect);
     createSettingsPanel();
     waitForWallpaper();
+  });
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => {
+    requestReconnect('检测到音频设备变化。蓝牙耳机连接后需要重新共享系统音频。');
   });
   window.addEventListener('beforeunload', stop);
 })();
