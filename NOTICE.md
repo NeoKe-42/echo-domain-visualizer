@@ -6,4 +6,6 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=3747222633
 
 The original wallpaper, compiled application, shaders, assets, animation systems, name, and related rights remain with their original creator.
 
-This repository does not contain the original workshop files or compiled application. Its Web Audio engine, Three.js scene, shaders, controls, and browser integration are independently implemented.
+This repository contains only the extracted compiled program, stylesheet, and property definitions required to run the Web wallpaper in a standard browser. These vendor files remain the property of the original creator.
+
+The browser system-audio bridge, native settings UI, persistence, GPU preference hint, and Vite integration are adaptation work maintained in this repository.
