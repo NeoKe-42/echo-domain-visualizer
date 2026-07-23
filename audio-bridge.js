@@ -18,9 +18,13 @@ import project from './wallpaper-properties.json';
   let audioListener = null;
   let stream = null;
   let context = null;
-  let analyser = null;
+  let source = null;
+  let splitter = null;
+  let leftAnalyser = null;
+  let rightAnalyser = null;
   let animationFrame = 0;
-  const rawSpectrum = new Uint8Array(1024);
+  const leftSpectrum = new Uint8Array(1024);
+  const rightSpectrum = new Uint8Array(1024);
   const wallpaperSpectrum = new Float32Array(128);
 
   window.wallpaperRegisterAudioListener = (listener) => {
@@ -170,11 +174,17 @@ import project from './wallpaper-properties.json';
       track.onended = null;
       track.stop();
     });
-    analyser?.disconnect();
+    source?.disconnect();
+    splitter?.disconnect();
+    leftAnalyser?.disconnect();
+    rightAnalyser?.disconnect();
     void context?.close();
     stream = null;
     context = null;
-    analyser = null;
+    source = null;
+    splitter = null;
+    leftAnalyser = null;
+    rightAnalyser = null;
     wallpaperSpectrum.fill(0);
     audioListener?.(wallpaperSpectrum);
     document.getElementById('browser-audio-bridge')?.classList.remove('is-connected');
@@ -190,26 +200,33 @@ import project from './wallpaper-properties.json';
     if (button) button.textContent = '重新连接系统音频';
   };
 
-  const sampleLogBand = (band, sampleRate) => {
+  const sampleLogBand = (band, sampleRate, spectrum, analyserNode) => {
     const minimumHz = 20;
     const maximumHz = 12000;
     const startHz = minimumHz * Math.pow(maximumHz / minimumHz, band / 64);
     const endHz = minimumHz * Math.pow(maximumHz / minimumHz, (band + 1) / 64);
-    const hzPerBin = sampleRate / analyser.fftSize;
+    const hzPerBin = sampleRate / analyserNode.fftSize;
     const start = Math.max(0, Math.floor(startHz / hzPerBin));
-    const end = Math.min(rawSpectrum.length - 1, Math.max(start, Math.ceil(endHz / hzPerBin)));
+    const end = Math.min(spectrum.length - 1, Math.max(start, Math.ceil(endHz / hzPerBin)));
     let sum = 0;
-    for (let index = start; index <= end; index++) sum += rawSpectrum[index];
+    for (let index = start; index <= end; index++) sum += spectrum[index];
     return Math.min(1.15, (sum / Math.max(1, end - start + 1) / 255) * 1.45);
   };
 
   const update = () => {
-    if (!analyser || !context) return;
-    analyser.getByteFrequencyData(rawSpectrum);
+    if (!leftAnalyser || !rightAnalyser || !context) return;
+    leftAnalyser.getByteFrequencyData(leftSpectrum);
+    rightAnalyser.getByteFrequencyData(rightSpectrum);
+    let rightSignal = 0;
+    for (let index = 0; index < rightSpectrum.length; index += 16) rightSignal += rightSpectrum[index];
+    const useMonoFallback = rightSignal < 2;
     for (let band = 0; band < 64; band++) {
-      const value = sampleLogBand(band, context.sampleRate);
-      wallpaperSpectrum[band] += (value - wallpaperSpectrum[band]) * (value > wallpaperSpectrum[band] ? .42 : .13);
-      wallpaperSpectrum[band + 64] = wallpaperSpectrum[band];
+      const left = sampleLogBand(band, context.sampleRate, leftSpectrum, leftAnalyser);
+      const right = useMonoFallback
+        ? left
+        : sampleLogBand(band, context.sampleRate, rightSpectrum, rightAnalyser);
+      wallpaperSpectrum[band] += (left - wallpaperSpectrum[band]) * (left > wallpaperSpectrum[band] ? .42 : .13);
+      wallpaperSpectrum[band + 64] += (right - wallpaperSpectrum[band + 64]) * (right > wallpaperSpectrum[band + 64] ? .42 : .13);
     }
     audioListener?.(wallpaperSpectrum);
     animationFrame = requestAnimationFrame(update);
@@ -239,12 +256,19 @@ import project from './wallpaper-properties.json';
       if (!stream.getAudioTracks().length) throw new Error('没有检测到音轨，请重新共享并勾选“共享系统音频”。');
       context = new AudioContext();
       await context.resume();
-      analyser = context.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = .36;
-      analyser.minDecibels = -92;
-      analyser.maxDecibels = -12;
-      context.createMediaStreamSource(stream).connect(analyser);
+      source = context.createMediaStreamSource(stream);
+      splitter = context.createChannelSplitter(2);
+      leftAnalyser = context.createAnalyser();
+      rightAnalyser = context.createAnalyser();
+      for (const analyserNode of [leftAnalyser, rightAnalyser]) {
+        analyserNode.fftSize = 2048;
+        analyserNode.smoothingTimeConstant = .36;
+        analyserNode.minDecibels = -92;
+        analyserNode.maxDecibels = -12;
+      }
+      source.connect(splitter);
+      splitter.connect(leftAnalyser, 0);
+      splitter.connect(rightAnalyser, 1);
       stream.getTracks().forEach((track) => { track.onended = stop; });
       stream.getAudioTracks().forEach((track) => {
         track.onmute = () => requestReconnect('系统音频已静音。若刚切换到蓝牙耳机，请重新连接。');
