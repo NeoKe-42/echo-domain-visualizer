@@ -25,7 +25,50 @@
 
 音频只在本地浏览器中处理，不会上传。
 
+## 下载项目
+
+不熟悉 Git 的用户可以直接下载压缩包：
+
+- [下载项目 ZIP（main 分支）](https://github.com/NeoKe-42/echo-domain-visualizer/archive/refs/heads/main.zip)
+
+下载完成后，右键解压 ZIP。后续命令需要在解压后的项目目录中执行。
+
+已经安装 Git 的用户也可以运行：
+
+```bash
+git clone https://github.com/NeoKe-42/echo-domain-visualizer.git
+cd echo-domain-visualizer
+```
+
+## 安装 Node.js 和 npm
+
+本项目需要 Node.js。**npm 会随 Node.js 一起安装，不需要单独下载 npm。**
+
+1. 打开 [Node.js 官方下载页面](https://nodejs.org/en/download)。
+2. 下载并安装标有 **LTS** 的版本。Windows 用户可使用官方安装程序，并保留默认安装选项。
+3. 安装结束后，关闭并重新打开终端、PowerShell 或命令提示符。
+4. 运行以下命令检查是否安装成功：
+
+```bash
+node -v
+npm -v
+```
+
+两条命令都显示版本号即可继续。
+
+> [!TIP]
+> Windows 用户如果输入 `npm` 后提示命令不存在，或者 PowerShell 提示无法加载 `npm.ps1`，可以直接使用 `npm.cmd`。无需为了运行本项目修改 PowerShell 执行策略。
+
+```bat
+node -v
+npm.cmd -v
+```
+
+如果 `node` 和 `npm.cmd` 也都无法识别，请重新安装 Node.js，安装完成后重启终端；必要时重启电脑。
+
 ## 本地启动
+
+先用终端进入解压后的项目目录。该目录中应当能看到 `package.json` 文件，然后运行：
 
 ```bash
 npm install
@@ -34,11 +77,29 @@ npm run dev
 
 打开终端显示的地址，通常为 `http://localhost:5173`。
 
+### Windows 使用 npm.cmd
+
+如果你的电脑无法直接运行 `npm`，上面的命令全部改为 `npm.cmd`：
+
+```bat
+npm.cmd install
+npm.cmd run dev
+```
+
+终端显示本地地址后，按住 `Ctrl` 并单击地址，或将地址复制到 Chrome/Edge 中打开。开发服务器运行期间不要关闭该终端；需要停止时按 `Ctrl+C`。
+
 ## 生产构建
 
 ```bash
 npm run build
 npm run preview
+```
+
+Windows 上对应的 `npm.cmd` 命令为：
+
+```bat
+npm.cmd run build
+npm.cmd run preview
 ```
 
 ## 系统音频
